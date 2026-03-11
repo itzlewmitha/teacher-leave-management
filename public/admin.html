@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Teacher Leave Management</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+
+        body {
+            background: #f5f7fa;
+        }
+
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .nav-brand span {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-user {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: #667eea;
+            text-transform: uppercase;
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: #fee;
+            color: #c33;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #fdd;
+        }
+
+        .container {
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .stat-title {
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            color: #333;
+            font-size: 36px;
+            font-weight: 700;
+        }
+
+        .stat-sub {
+            color: #10b981;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            font-weight: 500;
+            color: #666;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -12px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .section-header h2 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .search-box input,
+        .search-box select {
+            padding: 10px 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .search-box input:focus,
+        .search-box select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102,126,234,0.3);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
+        .btn-info {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #2563eb;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 15px;
+            background: #f9fafb;
+            color: #666;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e5e7eb;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: inline-block;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .status-approved {
+            background: #d1fae5;
+            color: #059669;
+        }
+
+        .status-rejected {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+        }
+
+        .notification-success {
+            background: #10b981;
+        }
+
+        .notification-error {
+            background: #ef4444;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .report-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 10px;
+        }
+
+        .report-controls select,
+        .report-controls input {
+            padding: 10px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .refresh-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+            margin-left: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span>📚 Admin Dashboard</span>
+            <span class="refresh-indicator" title="Live updates active"></span>
+        </div>
+        <div class="nav-user">
+            <div class="user-info">
+                <div class="user-name" id="userName">Loading...</div>
+                <div class="user-role">Administrator</div>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Statistics Cards - Auto-updating -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-title">Total Teachers</div>
+                <div class="stat-value" id="totalTeachers">0</div>
+                <div class="stat-sub">Active faculty members</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Pending Requests</div>
+                <div class="stat-value" id="pendingRequests">0</div>
+                <div class="stat-sub">Awaiting approval</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Approved This Month</div>
+                <div class="stat-value" id="approvedThisMonth">0</div>
+                <div class="stat-sub">Current month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Available Teachers</div>
+                <div class="stat-value" id="availableTeachers">0</div>
+                <div class="stat-sub">Not on leave today</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('requests')">Leave Requests</button>
+            <button class="tab" onclick="switchTab('teachers')">Teachers</button>
+            <button class="tab" onclick="switchTab('reports')">Monthly Reports</button>
+        </div>
+
+        <!-- Leave Requests Section -->
+        <div class="section active" id="requestsSection">
+            <div class="section-header">
+                <h2>Leave Requests</h2>
+                <div class="search-box">
+                    <input type="text" id="requestSearch" placeholder="Search requests..." onkeyup="filterRequests()">
+                    <select id="statusFilter" onchange="filterRequests()">
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table id="requestsTable">
+                    <thead>
+                        <tr>
+                            <th>Teacher</th>
+                            <th>Type</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Days</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Substitute</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requestsBody">
+                        <tr>
+                            <td colspan="9" style="text-align: center;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Teachers Section -->
+        <div class="section" id="teachersSection">
+            <div class="section-header">
+                <h2>Teachers</h2>
+                <div>
+                    <button class="btn btn-primary" onclick="showCreateTeacherModal()">+ Add Teacher</button>
+                </div>
+            </div>
+            <div class="search-box" style="margin-bottom: 20px;">
+                <input type="text" id="teacherSearch" placeholder="Search teachers..." onkeyup="filterTeachers()">
+            </div>
+            <div class="table-responsive">
+                <table id="teachersTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Total Leaves</th>
+                            <th>Remaining</th>
+                            <th>Used</th>
+                            <th>Cover Count</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teachersBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Reports Section -->
+        <div class="section" id="reportsSection">
+            <div class="section-header">
+                <h2>Monthly Leave Reports</h2>
+                <div class="search-box">
+                    <button class="btn btn-info" onclick="downloadAllTeachersReport()">📥 Download All Teachers Report</button>
+                </div>
+            </div>
+
+            <!-- Report Controls -->
+            <div class="report-controls">
+                <select id="reportMonth" onchange="updateReportPreview()">
+                    <option value="0">January</option>
+                    <option value="1">February</option>
+                    <option value="2">March</option>
+                    <option value="3">April</option>
+                    <option value="4">May</option>
+                    <option value="5">June</option>
+                    <option value="6">July</option>
+                    <option value="7">August</option>
+                    <option value="8">September</option>
+                    <option value="9">October</option>
+                    <option value="10">November</option>
+                    <option value="11">December</option>
+                </select>
+                <input type="number" id="reportYear" value="2024" min="2020" max="2030" onchange="updateReportPreview()">
+                <select id="reportTeacher" onchange="updateReportPreview()">
+                    <option value="all">All Teachers</option>
+                </select>
+                <button class="btn btn-success" onclick="downloadReport()">📥 Download Selected Report</button>
+            </div>
+
+            <!-- Report Preview -->
+            <div class="table-responsive">
+                <table id="reportTable">
+                    <thead>
+                        <tr>
+                            <th>Teacher</th>
+                            <th>Leave Type</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Days</th>
+                            <th>Status</th>
+                            <th>Substitute</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center;">Select month and year to preview report</td>
+                        </tr>
+                    </tbody>
+                    <tfoot id="reportFooter" style="display: none;">
+                        <tr>
+                            <td colspan="7" style="text-align: right; font-weight: bold; padding: 15px;">
+                                Total Leave Days: <span id="totalLeaveDays">0</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Teacher Modal -->
+    <div class="modal" id="createTeacherModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Teacher</h3>
+                <button class="close-btn" onclick="hideCreateTeacherModal()">&times;</button>
+            </div>
+            <form onsubmit="createTeacher(event)">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="teacherName" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="teacherEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="teacherPassword" required minlength="6">
+                    <small style="color: #666;">Minimum 6 characters</small>
+                </div>
+                <div class="form-group">
+                    <label>Total Leave Days (Annual)</label>
+                    <input type="number" id="teacherTotalLeaves" value="14" min="1" max="30" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Create Teacher</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Approve Request Modal -->
+    <div class="modal" id="approveModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Approve Leave Request</h3>
+                <button class="close-btn" onclick="hideApproveModal()">&times;</button>
+            </div>
+            <form onsubmit="approveRequest(event)">
+                <input type="hidden" id="approveRequestId">
+                <div class="form-group">
+                    <label>Select Substitute Teacher</label>
+                    <select id="substituteTeacher" required>
+                        <option value="">Loading available teachers...</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-success" style="width: 100%;">Approve Request</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reject Request Modal -->
+    <div class="modal" id="rejectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Reject Leave Request</h3>
+                <button class="close-btn" onclick="hideRejectModal()">&times;</button>
+            </div>
+            <form onsubmit="rejectRequest(event)">
+                <input type="hidden" id="rejectRequestId">
+                <div class="form-group">
+                    <label>Reason for Rejection</label>
+                    <textarea id="rejectReason" rows="4" required placeholder="Please provide a reason for rejection..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-danger" style="width: 100%;">Reject Request</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Global variables
+        let currentUser = null;
+        let allRequests = [];
+        let allTeachers = [];
+        let unsubscribeRequests = null;
+        let unsubscribeTeachers = null;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', async () => {
+            const userStr = sessionStorage.getItem('user');
+            if (userStr) {
+                currentUser = JSON.parse(userStr);
+                document.getElementById('userName').textContent = currentUser.name || 'Admin';
+                
+                // Set up real-time listeners
+                setupRequestsListener();
+                setupTeachersListener();
+            }
+        });
+
+        // Real-time requests listener
+        function setupRequestsListener() {
+            if (unsubscribeRequests) {
+                unsubscribeRequests();
+            }
+            
+            unsubscribeRequests = db.collection('leaveRequests')
+                .orderBy('createdAt', 'desc')
+                .onSnapshot((snapshot) => {
+                    allRequests = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data(),
+                        startDate: doc.data().startDate?.toDate(),
+                        endDate: doc.data().endDate?.toDate(),
+                        createdAt: doc.data().createdAt?.toDate()
+                    }));
+                    
+                    filterRequests();
+                    updateStats();
+                    updateReportPreview();
+                }, (error) => {
+                    console.error('Requests listener error:', error);
+                    showNotification('Failed to load requests', 'error');
+                });
+        }
+
+        // Real-time teachers listener
+        function setupTeachersListener() {
+            if (unsubscribeTeachers) {
+                unsubscribeTeachers();
+            }
+            
+            unsubscribeTeachers = db.collection('users')
+                .where('role', '==', 'teacher')
+                .onSnapshot((snapshot) => {
+                    allTeachers = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    
+                    filterTeachers();
+                    updateStats();
+                    updateTeacherSelect();
+                }, (error) => {
+                    console.error('Teachers listener error:', error);
+                    showNotification('Failed to load teachers', 'error');
+                });
+        }
+
+        // Update statistics
+        async function updateStats() {
+            // Total teachers
+            document.getElementById('totalTeachers').textContent = allTeachers.length;
+            
+            // Pending requests
+            const pending = allRequests.filter(r => r.status === 'pending').length;
+            document.getElementById('pendingRequests').textContent = pending;
+            
+            // Approved this month
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const approvedThisMonth = allRequests.filter(r => 
+                r.status === 'approved' && 
+                r.approvedAt && 
+                r.approvedAt >= startOfMonth
+            ).length;
+            document.getElementById('approvedThisMonth').textContent = approvedThisMonth;
+            
+            // Available teachers today
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            const onLeaveToday = allRequests.filter(r => 
+                (r.status === 'approved' || r.status === 'pending') &&
+                r.startDate <= tomorrow &&
+                r.endDate >= today
+            ).map(r => r.teacherId);
+            
+            const availableTeachers = allTeachers.filter(t => !onLeaveToday.includes(t.id)).length;
+            document.getElementById('availableTeachers').textContent = availableTeachers;
+        }
+
+        // Filter requests
+        function filterRequests() {
+            const searchTerm = document.getElementById('requestSearch')?.value.toLowerCase() || '';
+            const statusFilter = document.getElementById('statusFilter')?.value || 'all';
+            
+            const filtered = allRequests.filter(request => {
+                const matchesSearch = request.teacherName?.toLowerCase().includes(searchTerm) ||
+                                    request.reason?.toLowerCase().includes(searchTerm) ||
+                                    request.leaveType?.toLowerCase().includes(searchTerm);
+                const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
+            
+            displayRequests(filtered);
+        }
+
+        // Display requests
+        function displayRequests(requests) {
+            const tbody = document.getElementById('requestsBody');
+            
+            if (requests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No leave requests found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = requests.map(request => {
+                const statusClass = `status-badge status-${request.status}`;
+                const startDate = request.startDate ? request.startDate.toLocaleDateString() : 'N/A';
+                const endDate = request.endDate ? request.endDate.toLocaleDateString() : 'N/A';
+                const days = request.startDate && request.endDate ? 
+                    calculateDays(request.startDate, request.endDate) : 0;
+                
+                let actions = '';
+                if (request.status === 'pending') {
+                    actions = `
+                        <button class="btn btn-success btn-sm" onclick="showApproveModal('${request.id}')" style="margin-right: 5px;">Approve</button>
+                        <button class="btn btn-danger btn-sm" onclick="showRejectModal('${request.id}')">Reject</button>
+                    `;
+                } else {
+                    actions = '<span class="status-badge">No actions</span>';
+                }
+                
+                return `
+                    <tr>
+                        <td>${request.teacherName || 'N/A'}</td>
+                        <td>${request.leaveType || 'N/A'}</td>
+                        <td>${startDate}</td>
+                        <td>${endDate}</td>
+                        <td>${days}</td>
+                        <td>${request.reason || 'N/A'}</td>
+                        <td><span class="${statusClass}">${request.status}</span></td>
+                        <td>${request.substituteTeacherName || 'Not assigned'}</td>
+                        <td>${actions}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Filter teachers
+        function filterTeachers() {
+            const searchTerm = document.getElementById('teacherSearch')?.value.toLowerCase() || '';
+            
+            const filtered = allTeachers.filter(teacher => 
+                teacher.name?.toLowerCase().includes(searchTerm) ||
+                teacher.email?.toLowerCase().includes(searchTerm)
+            );
+            
+            displayTeachers(filtered);
+        }
+
+        // Display teachers
+        function displayTeachers(teachers) {
+            const tbody = document.getElementById('teachersBody');
+            
+            if (teachers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No teachers found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = teachers.map(teacher => {
+                const usedLeaves = (teacher.totalLeaves || 14) - (teacher.remainingLeaves || 14);
+                
+                return `
+                    <tr>
+                        <td>${teacher.name || 'N/A'}</td>
+                        <td>${teacher.email || 'N/A'}</td>
+                        <td>${teacher.totalLeaves || 14}</td>
+                        <td>${teacher.remainingLeaves || 14}</td>
+                        <td>${usedLeaves}</td>
+                        <td>${teacher.coverAssignmentsCount || 0}</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" onclick="deleteTeacher('${teacher.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Update teacher select dropdown
+        function updateTeacherSelect() {
+            const select = document.getElementById('reportTeacher');
+            if (!select) return;
+            
+            select.innerHTML = '<option value="all">All Teachers</option>' +
+                allTeachers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        }
+
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            
+            if (tab === 'requests') {
+                document.querySelector('[onclick="switchTab(\'requests\')"]').classList.add('active');
+                document.getElementById('requestsSection').classList.add('active');
+            } else if (tab === 'teachers') {
+                document.querySelector('[onclick="switchTab(\'teachers\')"]').classList.add('active');
+                document.getElementById('teachersSection').classList.add('active');
+            } else {
+                document.querySelector('[onclick="switchTab(\'reports\')"]').classList.add('active');
+                document.getElementById('reportsSection').classList.add('active');
+                updateReportPreview();
+            }
+        }
+
+        // Create teacher modal
+        function showCreateTeacherModal() {
+            document.getElementById('createTeacherModal').classList.add('active');
+        }
+
+        function hideCreateTeacherModal() {
+            document.getElementById('createTeacherModal').classList.remove('active');
+            document.getElementById('teacherName').value = '';
+            document.getElementById('teacherEmail').value = '';
+            document.getElementById('teacherPassword').value = '';
+            document.getElementById('teacherTotalLeaves').value = '14';
+        }
+
+        // Create teacher
+        async function createTeacher(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('teacherName').value;
+            const email = document.getElementById('teacherEmail').value;
+            const password = document.getElementById('teacherPassword').value;
+            const totalLeaves = parseInt(document.getElementById('teacherTotalLeaves').value);
+            
+            try {
+                // Create user in Firebase Auth
+                const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+                
+                // Create teacher document
+                await db.collection('users').doc(userCredential.user.uid).set({
+                    name: name,
+                    email: email,
+                    role: 'teacher',
+                    totalLeaves: totalLeaves,
+                    remainingLeaves: totalLeaves,
+                    coverAssignmentsCount: 0,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdBy: currentUser.uid
+                });
+                
+                hideCreateTeacherModal();
+                showNotification('Teacher created successfully!');
+                
+            } catch (error) {
+                console.error('Error creating teacher:', error);
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // Delete teacher
+        async function deleteTeacher(teacherId) {
+            if (!confirm('Are you sure you want to delete this teacher? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                // Delete teacher's leave requests
+                const requestsSnapshot = await db.collection('leaveRequests')
+                    .where('teacherId', '==', teacherId)
+                    .get();
+                
+                const batch = db.batch();
+                requestsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+                batch.delete(db.collection('users').doc(teacherId));
+                await batch.commit();
+                
+                showNotification('Teacher deleted successfully');
+                
+            } catch (error) {
+                console.error('Error deleting teacher:', error);
+                showNotification('Failed to delete teacher', 'error');
+            }
+        }
+
+        // Check teacher availability
+        async function getAvailableTeachers(startDate, endDate, excludeTeacherId) {
+            if (!startDate || !endDate) return allTeachers;
+            
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            
+            // Get all teachers on leave during this period
+            const onLeave = allRequests.filter(r => 
+                (r.status === 'approved' || r.status === 'pending') &&
+                r.teacherId !== excludeTeacherId &&
+                new Date(r.startDate) <= end &&
+                new Date(r.endDate) >= start
+            ).map(r => r.teacherId);
+            
+            return allTeachers.filter(t => 
+                t.id !== excludeTeacherId && 
+                !onLeave.includes(t.id)
+            );
+        }
+
+        // Approve modal
+        async function showApproveModal(requestId) {
+            const request = allRequests.find(r => r.id === requestId);
+            if (!request) return;
+            
+            const select = document.getElementById('substituteTeacher');
+            select.innerHTML = '<option value="">Loading available teachers...</option>';
+            
+            const availableTeachers = await getAvailableTeachers(
+                request.startDate, 
+                request.endDate, 
+                request.teacherId
+            );
+            
+            if (availableTeachers.length === 0) {
+                select.innerHTML = '<option value="">No teachers available</option>';
+            } else {
+                select.innerHTML = '<option value="">Choose a teacher...</option>' +
+                    availableTeachers.map(t => 
+                        `<option value="${t.id}" data-name="${t.name}">${t.name} (Covers: ${t.coverAssignmentsCount || 0})</option>`
+                    ).join('');
+            }
+            
+            document.getElementById('approveRequestId').value = requestId;
+            document.getElementById('approveModal').classList.add('active');
+        }
+
+        function hideApproveModal() {
+            document.getElementById('approveModal').classList.remove('active');
+            document.getElementById('approveRequestId').value = '';
+        }
+
+        // Approve request
+        async function approveRequest(event) {
+            event.preventDefault();
+            
+            const requestId = document.getElementById('approveRequestId').value;
+            const substituteSelect = document.getElementById('substituteTeacher');
+            const substituteId = substituteSelect.value;
+            const substituteName = substituteSelect.options[substituteSelect.selectedIndex]?.dataset.name;
+            
+            if (!substituteId || !substituteName) {
+                showNotification('Please select a substitute teacher', 'error');
+                return;
+            }
+            
+            try {
+                const request = allRequests.find(r => r.id === requestId);
+                if (!request) return;
+                
+                // Get teacher data
+                const teacherDoc = await db.collection('users').doc(request.teacherId).get();
+                const teacherData = teacherDoc.data();
+                
+                // Calculate days
+                const days = calculateDays(request.startDate, request.endDate);
+                
+                // Check leave balance
+                if (days > teacherData.remainingLeaves) {
+                    showNotification('Insufficient leave balance', 'error');
+                    return;
+                }
+                
+                // Get substitute data
+                const subDoc = await db.collection('users').doc(substituteId).get();
+                const subData = subDoc.data();
+                
+                // Batch update
+                const batch = db.batch();
+                
+                // Update request
+                const requestRef = db.collection('leaveRequests').doc(requestId);
+                batch.update(requestRef, {
+                    status: 'approved',
+                    substituteTeacherId: substituteId,
+                    substituteTeacherName: subData.name,
+                    approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    approvedBy: currentUser.uid
+                });
+                
+                // Update teacher's leave balance
+                const teacherRef = db.collection('users').doc(request.teacherId);
+                batch.update(teacherRef, {
+                    remainingLeaves: firebase.firestore.FieldValue.increment(-days)
+                });
+                
+                // Update substitute's cover count
+                const subRef = db.collection('users').doc(substituteId);
+                batch.update(subRef, {
+                    coverAssignmentsCount: firebase.firestore.FieldValue.increment(1)
+                });
+                
+                await batch.commit();
+                
+                hideApproveModal();
+                showNotification('Leave request approved successfully!');
+                
+            } catch (error) {
+                console.error('Error approving request:', error);
+                showNotification('Failed to approve request', 'error');
+            }
+        }
+
+        // Reject modal
+        function showRejectModal(requestId) {
+            document.getElementById('rejectRequestId').value = requestId;
+            document.getElementById('rejectModal').classList.add('active');
+        }
+
+        function hideRejectModal() {
+            document.getElementById('rejectModal').classList.remove('active');
+            document.getElementById('rejectRequestId').value = '';
+            document.getElementById('rejectReason').value = '';
+        }
+
+        // Reject request
+        async function rejectRequest(event) {
+            event.preventDefault();
+            
+            const requestId = document.getElementById('rejectRequestId').value;
+            const reason = document.getElementById('rejectReason').value;
+            
+            try {
+                await db.collection('leaveRequests').doc(requestId).update({
+                    status: 'rejected',
+                    rejectionReason: reason,
+                    rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    rejectedBy: currentUser.uid
+                });
+                
+                hideRejectModal();
+                showNotification('Leave request rejected');
+                
+            } catch (error) {
+                console.error('Error rejecting request:', error);
+                showNotification('Failed to reject request', 'error');
+            }
+        }
+
+        // Report functions
+        function updateReportPreview() {
+            const month = parseInt(document.getElementById('reportMonth').value);
+            const year = parseInt(document.getElementById('reportYear').value);
+            const teacherId = document.getElementById('reportTeacher').value;
+            
+            const startDate = new Date(year, month, 1);
+            const endDate = new Date(year, month + 1, 0);
+            endDate.setHours(23, 59, 59, 999);
+            
+            let filteredRequests = allRequests.filter(r => {
+                const requestDate = r.startDate;
+                return requestDate >= startDate && requestDate <= endDate;
+            });
+            
+            if (teacherId !== 'all') {
+                filteredRequests = filteredRequests.filter(r => r.teacherId === teacherId);
+            }
+            
+            displayReportPreview(filteredRequests);
+        }
+
+        function displayReportPreview(requests) {
+            const tbody = document.getElementById('reportBody');
+            const footer = document.getElementById('reportFooter');
+            
+            if (requests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No leave requests found for this period</td></tr>';
+                footer.style.display = 'none';
+                return;
+            }
+            
+            let totalDays = 0;
+            
+            tbody.innerHTML = requests.map(request => {
+                const days = calculateDays(request.startDate, request.endDate);
+                totalDays += days;
+                
+                return `
+                    <tr>
+                        <td>${request.teacherName || 'N/A'}</td>
+                        <td>${request.leaveType || 'N/A'}</td>
+                        <td>${request.startDate.toLocaleDateString()}</td>
+                        <td>${request.endDate.toLocaleDateString()}</td>
+                        <td>${days}</td>
+                        <td><span class="status-badge status-${request.status}">${request.status}</span></td>
+                        <td>${request.substituteTeacherName || 'N/A'}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            document.getElementById('totalLeaveDays').textContent = totalDays;
+            footer.style.display = 'table-footer-group';
+        }
+
+        function downloadReport() {
+            const month = parseInt(document.getElementById('reportMonth').value);
+            const year = parseInt(document.getElementById('reportYear').value);
+            const teacherId = document.getElementById('reportTeacher').value;
+            
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            const startDate = new Date(year, month, 1);
+            const endDate = new Date(year, month + 1, 0);
+            
+            let filteredRequests = allRequests.filter(r => {
+                const requestDate = r.startDate;
+                return requestDate >= startDate && requestDate <= endDate;
+            });
+            
+            let teacherName = 'All Teachers';
+            if (teacherId !== 'all') {
+                const teacher = allTeachers.find(t => t.id === teacherId);
+                teacherName = teacher ? teacher.name : 'Unknown';
+                filteredRequests = filteredRequests.filter(r => r.teacherId === teacherId);
+            }
+            
+            generateCSV(filteredRequests, `${monthNames[month]}_${year}_${teacherName.replace(/\s+/g, '_')}`);
+        }
+
+        function downloadAllTeachersReport() {
+            const month = parseInt(document.getElementById('reportMonth').value);
+            const year = parseInt(document.getElementById('reportYear').value);
+            
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            const startDate = new Date(year, month, 1);
+            const endDate = new Date(year, month + 1, 0);
+            
+            const filteredRequests = allRequests.filter(r => {
+                const requestDate = r.startDate;
+                return requestDate >= startDate && requestDate <= endDate;
+            });
+            
+            generateCSV(filteredRequests, `${monthNames[month]}_${year}_All_Teachers`);
+        }
+
+        function generateCSV(requests, filename) {
+            // Create CSV content
+            let csv = 'Teacher,Leave Type,Start Date,End Date,Days,Status,Substitute\n';
+            
+            requests.forEach(request => {
+                const days = calculateDays(request.startDate, request.endDate);
+                csv += `"${request.teacherName || ''}","${request.leaveType || ''}",` +
+                    `"${request.startDate.toLocaleDateString()}","${request.endDate.toLocaleDateString()}",` +
+                    `${days},"${request.status}","${request.substituteTeacherName || ''}"\n`;
+            });
+            
+            // Add summary
+            csv += '\n';
+            csv += `Total Requests,${requests.length}\n`;
+            
+            const totalDays = requests.reduce((sum, r) => sum + calculateDays(r.startDate, r.endDate), 0);
+            csv += `Total Leave Days,${totalDays}\n`;
+            
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}_Leave_Report.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            showNotification('Report downloaded successfully!');
+        }
+
+        // Show notification
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 25px;
+                background: ${type === 'success' ? '#10b981' : '#ef4444'};
+                color: white;
+                border-radius: 8px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                z-index: 9999;
+                animation: slideIn 0.3s ease;
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (unsubscribeRequests) unsubscribeRequests();
+            if (unsubscribeTeachers) unsubscribeTeachers();
+        });
+    </script>
+</body>
+</html>
