@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Leave Management</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="#dashboard" class="menu-item active" onclick="showSection('dashboard')">
+                    <span>📊</span> Dashboard
+                </a>
+                <a href="#leave-requests" class="menu-item" onclick="showSection('leave-requests')">
+                    <span>📋</span> Leave Requests
+                </a>
+                <a href="#create-teacher" class="menu-item" onclick="showSection('create-teacher')">
+                    <span>👤</span> Create Teacher
+                </a>
+                <a href="#teachers" class="menu-item" onclick="showSection('teachers')">
+                    <span>👥</span> Teachers
+                </a>
+            </div>
+            <div class="sidebar-footer">
+                <div class="user-info" id="userInfo">
+                    <span class="user-name"></span>
+                    <span class="user-role">Admin</span>
+                </div>
+                <button onclick="logout()" class="btn btn-danger">Logout</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Dashboard Section -->
+            <div id="dashboard" class="content-section active">
+                <h1>Admin Dashboard</h1>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-details">
+                            <h3>Total Teachers</h3>
+                            <p id="totalTeachers">0</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">⏳</div>
+                        <div class="stat-details">
+                            <h3>Pending Requests</h3>
+                            <p id="pendingRequests">0</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-details">
+                            <h3>Approved Today</h3>
+                            <p id="approvedToday">0</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-details">
+                            <h3>Active Leaves</h3>
+                            <p id="activeLeaves">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-activity">
+                    <h2>Recent Leave Requests</h2>
+                    <div class="table-responsive">
+                        <table class="table" id="recentLeavesTable">
+                            <thead>
+                                <tr>
+                                    <th>Teacher</th>
+                                    <th>Type</th>
+                                    <th>Dates</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentLeavesBody">
+                                <tr>
+                                    <td colspan="4" class="text-center">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leave Requests Section -->
+            <div id="leave-requests" class="content-section">
+                <h1>Leave Requests</h1>
+                
+                <div class="filter-bar">
+                    <select id="statusFilter" onchange="filterLeaveRequests()">
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Teacher</th>
+                                <th>Type</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Reason</th>
+                                <th>Assignment</th>
+                                <th>Status</th>
+                                <th>Substitute</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaveRequestsBody">
+                            <tr>
+                                <td colspan="9" class="text-center">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Create Teacher Section -->
+            <div id="create-teacher" class="content-section">
+                <h1>Create Teacher Account</h1>
+                
+                <div class="form-container">
+                    <form id="createTeacherForm">
+                        <div class="form-group">
+                            <label for="teacherName">Full Name *</label>
+                            <input type="text" id="teacherName" class="form-control" required placeholder="Enter teacher's full name">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="teacherEmail">Email *</label>
+                            <input type="email" id="teacherEmail" class="form-control" required placeholder="Enter teacher's email">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="teacherPassword">Password *</label>
+                            <input type="password" id="teacherPassword" class="form-control" required placeholder="Enter temporary password">
+                        </div>
+
+                        <div id="createError" class="error-message" style="display: none;"></div>
+                        <div id="createSuccess" class="success-message" style="display: none;"></div>
+
+                        <button type="submit" class="btn btn-primary">Create Teacher Account</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Teachers Section -->
+            <div id="teachers" class="content-section">
+                <h1>Teachers</h1>
+                
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Total Leaves</th>
+                                <th>Remaining Leaves</th>
+                                <th>Cover Assignments</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teachersBody">
+                            <tr>
+                                <td colspan="5" class="text-center">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="js/firebaseConfig.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>

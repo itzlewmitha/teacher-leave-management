@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard - Leave Management</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Leave Management</h2>
+            </div>
+            <div class="sidebar-menu">
+                <a href="#overview" class="menu-item active" onclick="showSection('overview')">
+                    <span>📊</span> Overview
+                </a>
+                <a href="#apply-leave" class="menu-item" onclick="showSection('apply-leave')">
+                    <span>📝</span> Apply Leave
+                </a>
+                <a href="#leave-history" class="menu-item" onclick="showSection('leave-history')">
+                    <span>📋</span> Leave History
+                </a>
+            </div>
+            <div class="sidebar-footer">
+                <div class="user-info" id="userInfo">
+                    <span class="user-name"></span>
+                    <span class="user-role">Teacher</span>
+                </div>
+                <button onclick="logout()" class="btn btn-danger">Logout</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Overview Section -->
+            <div id="overview" class="content-section active">
+                <h1>Dashboard Overview</h1>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🏖️</div>
+                        <div class="stat-details">
+                            <h3>Total Leaves</h3>
+                            <p id="totalLeaves">14</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-details">
+                            <h3>Remaining Leaves</h3>
+                            <p id="remainingLeaves">14</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-details">
+                            <h3>Cover Assignments</h3>
+                            <p id="coverAssignments">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-activity">
+                    <h2>Recent Leave Requests</h2>
+                    <div class="table-responsive">
+                        <table class="table" id="recentLeavesTable">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Status</th>
+                                    <th>Substitute</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentLeavesBody">
+                                <tr>
+                                    <td colspan="5" class="text-center">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Apply Leave Section -->
+            <div id="apply-leave" class="content-section">
+                <h1>Apply for Leave</h1>
+                
+                <div class="form-container">
+                    <form id="leaveForm">
+                        <div class="form-group">
+                            <label for="leaveType">Leave Type *</label>
+                            <select id="leaveType" class="form-control" required>
+                                <option value="">Select Leave Type</option>
+                                <option value="Medical">Medical Leave</option>
+                                <option value="Casual">Casual Leave</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="startDate">Start Date *</label>
+                                <input type="date" id="startDate" class="form-control" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="endDate">End Date *</label>
+                                <input type="date" id="endDate" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reason">Reason *</label>
+                            <textarea id="reason" class="form-control" rows="4" required placeholder="Enter reason for leave"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="assignmentLink">Assignment Google Drive Link</label>
+                            <input type="url" id="assignmentLink" class="form-control" placeholder="https://drive.google.com/...">
+                        </div>
+
+                        <div id="formError" class="error-message" style="display: none;"></div>
+                        <div id="formSuccess" class="success-message" style="display: none;"></div>
+
+                        <button type="submit" class="btn btn-primary">Submit Leave Request</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Leave History Section -->
+            <div id="leave-history" class="content-section">
+                <h1>Leave History</h1>
+                
+                <div class="filter-bar">
+                    <select id="statusFilter" onchange="filterLeaves()">
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Substitute</th>
+                                <th>Applied On</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaveHistoryBody">
+                            <tr>
+                                <td colspan="7" class="text-center">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="js/firebaseConfig.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/teacher.js"></script>
+</body>
+</html>
