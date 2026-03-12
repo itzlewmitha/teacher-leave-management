@@ -492,3 +492,636 @@ window.logout = logout;
 window.filterLeaveRequests = filterLeaveRequests;
 window.approveLeave = approveLeave;
 window.rejectLeave = rejectLeave;
+
+// ==================== PDF REPORT FUNCTIONS ====================
+
+// Download current view as PDF
+async function downloadCurrentViewPDF() {
+    try {
+        const statusFilter = document.getElementById('statusFilter').value;
+        const snapshot = await db.collection('leaveRequests')
+            .orderBy('createdAt', 'desc')
+            .get();
+        
+        const leaves = [];
+        snapshot.forEach(doc => {
+            const leave = { id: doc.id, ...doc.data() };
+            if (statusFilter === 'all' || leave.status === statusFilter) {
+                leaves.push(leave);
+            }
+        });
+        
+        generatePDFReport(leaves, `Leave_Requests_${statusFilter}_${new Date().toISOString().split('T')[0]}`);
+    } catch (error) {
+        console.error('Error downloading PDF:', error);
+        showReportStatus('Error generating PDF. Please try again.', 'error');
+    }
+}
+
+// Generate monthly report
+async function generateMonthlyReport() {
+    const monthInput = document.getElementById('reportMonth').value;
+    if (!monthInput) {
+        showReportStatus('Please select a month', 'error');
+        return;
+    }
+    
+    const [year, month] = monthInput.split('-');
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+    
+    const includeSummary = document.getElementById('includeSummary').checked;
+    const includeTeacherDetails = document.getElementById('includeTeacherDetails').checked;
+    const includeSubstituteInfo = document.getElementById('includeSubstituteInfo').checked;
+    const groupByStatus = document.getElementById('groupByStatus').checked;
+    
+    try {
+        showReportStatus('Generating report...', 'info');
+        
+        // Get all leave requests for the month
+        const snapshot = await db.collection('leaveRequests')
+            .where('createdAt', '>=', startDate.toISOString())
+            .where('createdAt', '<=', endDate.toISOString())
+            .orderBy('createdAt', 'desc')
+            .get();
+        
+        const leaves = [];
+        snapshot.forEach(doc => {
+            leaves.push({ id: doc.id, ...doc.data() });
+        });
+        
+        if (leaves.length === 0) {
+            showReportStatus('No leave requests found for the selected month', 'info');
+            return;
+        }
+        
+        // Get teacher details if needed
+        let teachers = [];
+        if (includeTeacherDetails) {
+            const teachersSnapshot = await db.collection('users')
+                .where('role', '==', 'teacher')
+                .get();
+            teachersSnapshot.forEach(doc => {
+                teachers.push({ id: doc.id, ...doc.data() });
+            });
+        }
+        
+        // Generate PDF
+        await generateMonthlyPDFReport(leaves, teachers, year, month, {
+            includeSummary,
+            includeTeacherDetails,
+            includeSubstituteInfo,
+            groupByStatus
+        });
+        
+        // Show preview
+        showReportPreview(leaves);
+        
+        showReportStatus('Report generated successfully!', 'success');
+    } catch (error) {
+        console.error('Error generating monthly report:', error);
+        showReportStatus('Error generating report. Please try again.', 'error');
+    }
+}
+
+// Generate yearly summary
+async function generateYearlySummary() {
+    const monthInput = document.getElementById('reportMonth').value;
+    if (!monthInput) {
+        showReportStatus('Please select a month to get the year', 'error');
+        return;
+    }
+    
+    const year = monthInput.split('-')[0];
+    
+    try {
+        showReportStatus('Generating yearly summary...', 'info');
+        
+        const startDate = new Date(year, 0, 1);
+        const endDate = new Date(year, 11, 31, 23, 59, 59);
+        
+        const snapshot = await db.collection('leaveRequests')
+            .where('createdAt', '>=', startDate.toISOString())
+            .where('createdAt', '<=', endDate.toISOString())
+            .get();
+        
+        const leaves = [];
+        snapshot.forEach(doc => {
+            leaves.push({ id: doc.id, ...doc.data() });
+        });
+        
+        await generateYearlyPDFReport(leaves, year);
+        showReportStatus('Yearly summary generated successfully!', 'success');
+    } catch (error) {
+        console.error('Error generating yearly summary:', error);
+        showReportStatus('Error generating yearly summary', 'error');
+    }
+}
+
+// Download pending requests report
+async function downloadPendingReport() {
+    try {
+        const snapshot = await db.collection('leaveRequests')
+            .where('status', '==', 'pending')
+            .orderBy('createdAt', 'desc')
+            .get();
+        
+        const leaves = [];
+        snapshot.forEach(doc => {
+            leaves.push({ id: doc.id, ...doc.data() });
+        });
+        
+        generatePDFReport(leaves, `Pending_Requests_${new Date().toISOString().split('T')[0]}`, 'Pending Leave Requests');
+    } catch (error) {
+        console.error('Error generating pending report:', error);
+        showReportStatus('Error generating pending report', 'error');
+    }
+}
+
+// Download teacher leave summary
+async function downloadTeacherReport() {
+    try {
+        // Get all teachers
+        const teachersSnapshot = await db.collection('users')
+            .where('role', '==', 'teacher')
+            .get();
+        
+        const teachers = [];
+        teachersSnapshot.forEach(doc => {
+            teachers.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Get all approved leaves
+        const leavesSnapshot = await db.collection('leaveRequests')
+            .where('status', '==', 'approved')
+            .get();
+        
+        const leaves = [];
+        leavesSnapshot.forEach(doc => {
+            leaves.push({ id: doc.id, ...doc.data() });
+        });
+        
+        await generateTeacherSummaryPDF(teachers, leaves);
+    } catch (error) {
+        console.error('Error generating teacher report:', error);
+        showReportStatus('Error generating teacher report', 'error');
+    }
+}
+
+// Download substitute teacher report
+async function downloadSubstituteReport() {
+    try {
+        const snapshot = await db.collection('leaveRequests')
+            .where('status', '==', 'approved')
+            .where('substituteTeacherId', '!=', null)
+            .orderBy('createdAt', 'desc')
+            .get();
+        
+        const leaves = [];
+        snapshot.forEach(doc => {
+            leaves.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Get substitute teachers details
+        const teachersSnapshot = await db.collection('users')
+            .where('role', '==', 'teacher')
+            .get();
+        
+        const teachers = {};
+        teachersSnapshot.forEach(doc => {
+            teachers[doc.id] = doc.data();
+        });
+        
+        await generateSubstitutePDFReport(leaves, teachers);
+    } catch (error) {
+        console.error('Error generating substitute report:', error);
+        showReportStatus('Error generating substitute report', 'error');
+    }
+}
+
+// Generate PDF Report
+function generatePDFReport(leaves, filename, title = 'Leave Requests Report') {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(20);
+    doc.text(title, 14, 22);
+    
+    // Add date
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+    
+    // Prepare table data
+    const tableColumn = ['Teacher', 'Type', 'Start Date', 'End Date', 'Status', 'Substitute'];
+    const tableRows = [];
+    
+    leaves.forEach(leave => {
+        const leaveData = [
+            leave.teacherName || 'Unknown',
+            leave.leaveType || 'N/A',
+            formatDate(leave.startDate),
+            formatDate(leave.endDate),
+            leave.status || 'N/A',
+            leave.substituteTeacherId || 'Not assigned'
+        ];
+        tableRows.push(leaveData);
+    });
+    
+    // Add table
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 40,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [52, 152, 219] }
+    });
+    
+    // Save PDF
+    doc.save(`${filename}.pdf`);
+}
+
+// Generate Monthly PDF Report
+async function generateMonthlyPDFReport(leaves, teachers, year, month, options) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    // Title
+    doc.setFontSize(24);
+    doc.text(`Monthly Leave Report`, 14, 22);
+    doc.setFontSize(16);
+    doc.text(`${monthNames[parseInt(month) - 1]} ${year}`, 14, 32);
+    
+    // Generated date
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 40);
+    
+    let yPos = 50;
+    
+    // Summary Statistics
+    if (options.includeSummary) {
+        const totalLeaves = leaves.length;
+        const approved = leaves.filter(l => l.status === 'approved').length;
+        const pending = leaves.filter(l => l.status === 'pending').length;
+        const rejected = leaves.filter(l => l.status === 'rejected').length;
+        
+        // Calculate total leave days
+        let totalDays = 0;
+        leaves.forEach(leave => {
+            if (leave.status === 'approved') {
+                const start = new Date(leave.startDate);
+                const end = new Date(leave.endDate);
+                const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+                totalDays += days;
+            }
+        });
+        
+        doc.setFontSize(14);
+        doc.text('Summary Statistics', 14, yPos);
+        yPos += 10;
+        
+        doc.setFontSize(10);
+        doc.text(`Total Leave Requests: ${totalLeaves}`, 20, yPos);
+        yPos += 7;
+        doc.text(`Approved: ${approved}`, 20, yPos);
+        yPos += 7;
+        doc.text(`Pending: ${pending}`, 20, yPos);
+        yPos += 7;
+        doc.text(`Rejected: ${rejected}`, 20, yPos);
+        yPos += 7;
+        doc.text(`Total Leave Days Taken: ${totalDays}`, 20, yPos);
+        yPos += 15;
+    }
+    
+    // Group by status if option selected
+    if (options.groupByStatus) {
+        const statuses = ['approved', 'pending', 'rejected'];
+        
+        for (const status of statuses) {
+            const statusLeaves = leaves.filter(l => l.status === status);
+            if (statusLeaves.length > 0) {
+                doc.setFontSize(12);
+                doc.text(`${status.toUpperCase()} Requests`, 14, yPos);
+                yPos += 8;
+                
+                const tableColumn = ['Teacher', 'Type', 'Period', 'Reason'];
+                const tableRows = [];
+                
+                statusLeaves.forEach(leave => {
+                    const period = `${formatDate(leave.startDate)} to ${formatDate(leave.endDate)}`;
+                    tableRows.push([
+                        leave.teacherName || 'Unknown',
+                        leave.leaveType || 'N/A',
+                        period,
+                        leave.reason?.substring(0, 30) + (leave.reason?.length > 30 ? '...' : '') || 'N/A'
+                    ]);
+                });
+                
+                doc.autoTable({
+                    head: [tableColumn],
+                    body: tableRows,
+                    startY: yPos,
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: status === 'approved' ? [39, 174, 96] : 
+                                              status === 'pending' ? [243, 156, 18] : [231, 76, 60] }
+                });
+                
+                yPos = doc.lastAutoTable.finalY + 15;
+            }
+        }
+    } else {
+        // Regular table without grouping
+        const tableColumn = ['Teacher', 'Type', 'Period', 'Status', 'Reason'];
+        const tableRows = [];
+        
+        leaves.forEach(leave => {
+            const period = `${formatDate(leave.startDate)} to ${formatDate(leave.endDate)}`;
+            tableRows.push([
+                leave.teacherName || 'Unknown',
+                leave.leaveType || 'N/A',
+                period,
+                leave.status || 'N/A',
+                leave.reason?.substring(0, 30) + (leave.reason?.length > 30 ? '...' : '') || 'N/A'
+            ]);
+        });
+        
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: yPos,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [52, 152, 219] }
+        });
+    }
+    
+    // Teacher details if requested
+    if (options.includeTeacherDetails && teachers.length > 0) {
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.text('Teacher Details', 14, 22);
+        
+        const teacherColumn = ['Name', 'Email', 'Total Leaves', 'Remaining', 'Cover Assignments'];
+        const teacherRows = teachers.map(t => [
+            t.name || 'Unknown',
+            t.email || 'N/A',
+            t.totalLeaves || 0,
+            t.remainingLeaves || 0,
+            t.coverAssignmentsCount || 0
+        ]);
+        
+        doc.autoTable({
+            head: [teacherColumn],
+            body: teacherRows,
+            startY: 30,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [52, 152, 219] }
+        });
+    }
+    
+    // Save PDF
+    const monthName = monthNames[parseInt(month) - 1];
+    doc.save(`Monthly_Report_${monthName}_${year}.pdf`);
+}
+
+// Generate Yearly PDF Report
+async function generateYearlyPDFReport(leaves, year) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    doc.setFontSize(24);
+    doc.text(`Yearly Leave Summary`, 14, 22);
+    doc.setFontSize(16);
+    doc.text(`${year}`, 14, 32);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 40);
+    
+    // Monthly breakdown
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyData = {};
+    
+    months.forEach(month => {
+        monthlyData[month] = { approved: 0, pending: 0, rejected: 0, total: 0 };
+    });
+    
+    leaves.forEach(leave => {
+        if (leave.createdAt) {
+            const date = new Date(leave.createdAt);
+            const month = months[date.getMonth()];
+            monthlyData[month][leave.status]++;
+            monthlyData[month].total++;
+        }
+    });
+    
+    // Create monthly table
+    const tableColumn = ['Month', 'Total', 'Approved', 'Pending', 'Rejected'];
+    const tableRows = [];
+    
+    months.forEach(month => {
+        tableRows.push([
+            month,
+            monthlyData[month].total,
+            monthlyData[month].approved,
+            monthlyData[month].pending,
+            monthlyData[month].rejected
+        ]);
+    });
+    
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 50,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [52, 152, 219] }
+    });
+    
+    // Summary statistics
+    const totalLeaves = leaves.length;
+    const approved = leaves.filter(l => l.status === 'approved').length;
+    const pending = leaves.filter(l => l.status === 'pending').length;
+    const rejected = leaves.filter(l => l.status === 'rejected').length;
+    
+    let yPos = doc.lastAutoTable.finalY + 20;
+    
+    doc.setFontSize(14);
+    doc.text('Yearly Summary', 14, yPos);
+    yPos += 10;
+    
+    doc.setFontSize(10);
+    doc.text(`Total Leave Requests: ${totalLeaves}`, 20, yPos);
+    yPos += 7;
+    doc.text(`Approved: ${approved} (${Math.round(approved/totalLeaves*100)}%)`, 20, yPos);
+    yPos += 7;
+    doc.text(`Pending: ${pending} (${Math.round(pending/totalLeaves*100)}%)`, 20, yPos);
+    yPos += 7;
+    doc.text(`Rejected: ${rejected} (${Math.round(rejected/totalLeaves*100)}%)`, 20, yPos);
+    
+    doc.save(`Yearly_Summary_${year}.pdf`);
+}
+
+// Generate Teacher Summary PDF
+async function generateTeacherSummaryPDF(teachers, leaves) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    doc.setFontSize(24);
+    doc.text('Teacher Leave Summary', 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 32);
+    
+    const tableColumn = ['Teacher', 'Total Leaves', 'Remaining', 'Used', 'Cover Assignments', 'Leave Requests'];
+    const tableRows = [];
+    
+    teachers.forEach(teacher => {
+        const teacherLeaves = leaves.filter(l => l.teacherId === teacher.id);
+        const usedLeaves = teacher.totalLeaves - teacher.remainingLeaves;
+        
+        tableRows.push([
+            teacher.name || 'Unknown',
+            teacher.totalLeaves || 0,
+            teacher.remainingLeaves || 0,
+            usedLeaves,
+            teacher.coverAssignmentsCount || 0,
+            teacherLeaves.length
+        ]);
+    });
+    
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 40,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [52, 152, 219] }
+    });
+    
+    doc.save(`Teacher_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+// Generate Substitute Report PDF
+async function generateSubstitutePDFReport(leaves, teachers) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    doc.setFontSize(24);
+    doc.text('Substitute Teacher Report', 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 32);
+    
+    // Calculate substitute statistics
+    const substituteCounts = {};
+    leaves.forEach(leave => {
+        if (leave.substituteTeacherId) {
+            substituteCounts[leave.substituteTeacherId] = (substituteCounts[leave.substituteTeacherId] || 0) + 1;
+        }
+    });
+    
+    // Substitute performance table
+    const tableColumn = ['Substitute Teacher', 'Number of Assignments', 'Teachers Covered For'];
+    const tableRows = [];
+    
+    Object.keys(substituteCounts).forEach(subId => {
+        const teacher = teachers[subId];
+        const teachersCovered = new Set();
+        leaves.forEach(leave => {
+            if (leave.substituteTeacherId === subId) {
+                teachersCovered.add(leave.teacherId);
+            }
+        });
+        
+        tableRows.push([
+            teacher?.name || subId,
+            substituteCounts[subId],
+            teachersCovered.size
+        ]);
+    });
+    
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 40,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [52, 152, 219] }
+    });
+    
+    // Assignment details
+    if (leaves.length > 0) {
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.text('Assignment Details', 14, 22);
+        
+        const detailColumn = ['Date', 'Teacher', 'Substitute', 'Leave Type', 'Period'];
+        const detailRows = leaves.map(leave => {
+            const substitute = teachers[leave.substituteTeacherId]?.name || leave.substituteTeacherId;
+            return [
+                formatDate(leave.createdAt),
+                leave.teacherName || 'Unknown',
+                substitute || 'Unknown',
+                leave.leaveType || 'N/A',
+                `${formatDate(leave.startDate)} to ${formatDate(leave.endDate)}`
+            ];
+        });
+        
+        doc.autoTable({
+            head: [detailColumn],
+            body: detailRows,
+            startY: 30,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [52, 152, 219] }
+        });
+    }
+    
+    doc.save(`Substitute_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+// Show report preview
+function showReportPreview(leaves) {
+    const previewDiv = document.getElementById('reportPreview');
+    const previewBody = document.getElementById('previewBody');
+    
+    if (leaves.length === 0) {
+        previewDiv.style.display = 'none';
+        return;
+    }
+    
+    let html = '';
+    leaves.slice(0, 10).forEach(leave => {
+        html += `
+            <tr>
+                <td>${leave.teacherName || 'Unknown'}</td>
+                <td>${leave.leaveType || 'N/A'}</td>
+                <td>${formatDate(leave.startDate)} - ${formatDate(leave.endDate)}</td>
+                <td><span class="status-${leave.status}">${leave.status}</span></td>
+                <td>${leave.substituteTeacherId || 'Not assigned'}</td>
+            </tr>
+        `;
+    });
+    
+    if (leaves.length > 10) {
+        html += `<tr><td colspan="5" class="text-center">... and ${leaves.length - 10} more records</td></tr>`;
+    }
+    
+    previewBody.innerHTML = html;
+    previewDiv.style.display = 'block';
+}
+
+// Show report status message
+function showReportStatus(message, type) {
+    const statusDiv = document.getElementById('reportStatus');
+    statusDiv.textContent = message;
+    statusDiv.className = `status-message ${type}`;
+    statusDiv.style.display = 'block';
+    
+    setTimeout(() => {
+        statusDiv.style.display = 'none';
+    }, 5000);
+}
+
+// Make functions global
+window.downloadCurrentViewPDF = downloadCurrentViewPDF;
+window.generateMonthlyReport = generateMonthlyReport;
+window.generateYearlySummary = generateYearlySummary;
+window.downloadPendingReport = downloadPendingReport;
+window.downloadTeacherReport = downloadTeacherReport;
+window.downloadSubstituteReport = downloadSubstituteReport;

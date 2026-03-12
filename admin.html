@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Leave Management</title>
     <link rel="stylesheet" href="css/style.css">
+    <!-- Add jsPDF library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Add jsPDF AutoTable plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <div class="dashboard">
@@ -19,6 +23,9 @@
                 </a>
                 <a href="#leave-requests" class="menu-item" onclick="showSection('leave-requests')">
                     <span>📋</span> Leave Requests
+                </a>
+                <a href="#reports" class="menu-item" onclick="showSection('reports')">
+                    <span>📑</span> Reports
                 </a>
                 <a href="#create-teacher" class="menu-item" onclick="showSection('create-teacher')">
                     <span>👤</span> Create Teacher
@@ -100,7 +107,12 @@
 
             <!-- Leave Requests Section -->
             <div id="leave-requests" class="content-section">
-                <h1>Leave Requests</h1>
+                <div class="section-header">
+                    <h1>Leave Requests</h1>
+                    <button onclick="downloadCurrentViewPDF()" class="btn btn-primary">
+                        📥 Download Current View as PDF
+                    </button>
+                </div>
                 
                 <div class="filter-bar">
                     <select id="statusFilter" onchange="filterLeaveRequests()">
@@ -112,7 +124,7 @@
                 </div>
 
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table" id="leaveRequestsTable">
                         <thead>
                             <tr>
                                 <th>Teacher</th>
@@ -132,6 +144,86 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Reports Section (New) -->
+            <div id="reports" class="content-section">
+                <h1>Monthly Reports</h1>
+                
+                <div class="reports-container">
+                    <div class="report-card">
+                        <h2>Monthly Leave Report</h2>
+                        <p>Generate a comprehensive PDF report of all leave requests for a specific month.</p>
+                        
+                        <div class="report-form">
+                            <div class="form-group">
+                                <label for="reportMonth">Select Month:</label>
+                                <input type="month" id="reportMonth" class="form-control" required>
+                            </div>
+                            
+                            <div class="report-options">
+                                <h3>Report Options:</h3>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="includeSummary" checked> Include Summary Statistics
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="includeTeacherDetails" checked> Include Teacher Details
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="includeSubstituteInfo" checked> Include Substitute Information
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="groupByStatus" checked> Group by Status
+                                </label>
+                            </div>
+                            
+                            <div class="report-actions">
+                                <button onclick="generateMonthlyReport()" class="btn btn-primary">
+                                    📥 Generate Monthly Report
+                                </button>
+                                <button onclick="generateYearlySummary()" class="btn btn-success">
+                                    📊 Generate Yearly Summary
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="reportStatus" class="status-message" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="report-card">
+                        <h2>Quick Reports</h2>
+                        <div class="quick-report-buttons">
+                            <button onclick="downloadPendingReport()" class="btn btn-warning">
+                                ⏳ Pending Requests Report
+                            </button>
+                            <button onclick="downloadTeacherReport()" class="btn btn-info">
+                                👥 Teacher Leave Summary
+                            </button>
+                            <button onclick="downloadSubstituteReport()" class="btn btn-secondary">
+                                🔄 Substitute Teacher Report
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="report-preview" id="reportPreview" style="display: none;">
+                        <h3>Report Preview</h3>
+                        <div class="table-responsive">
+                            <table class="table" id="previewTable">
+                                <thead>
+                                    <tr>
+                                        <th>Teacher</th>
+                                        <th>Type</th>
+                                        <th>Period</th>
+                                        <th>Status</th>
+                                        <th>Substitute</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="previewBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
