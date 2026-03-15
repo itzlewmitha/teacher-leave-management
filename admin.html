@@ -191,6 +191,26 @@
                         
                         <div id="reportStatus" class="status-message" style="display: none;"></div>
                     </div>
+                    <!-- Simple Email Test Panel -->
+<div style="background: white; border-radius: 10px; padding: 20px; margin: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+    <h2 style="margin-top: 0; color: #2c3e50;">📧 Email Test Panel</h2>
+    
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button onclick="testEmailNow()" 
+                style="background: #27ae60; color: white; border: none; padding: 12px 24px; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer;">
+            📧 TEST EMAIL NOW
+        </button>
+        
+        <button onclick="alert('Current user: ' + (getCurrentUser()?.email || 'None'))" 
+                style="background: #3498db; color: white; border: none; padding: 12px 24px; border-radius: 5px; font-size: 16px; cursor: pointer;">
+            👤 Show Current User
+        </button>
+    </div>
+    
+    <p style="margin-top: 15px; color: #7f8c8d; font-size: 14px;">
+        Click "TEST EMAIL NOW" - you'll get an alert, then check your email in 2-3 minutes.
+    </p>
+</div>
                     
                     <div class="report-card">
                         <h2>Quick Reports</h2>
@@ -205,30 +225,7 @@
                                 🔄 Substitute Teacher Report
                             </button>
                         </div>
-                    </div> 
-                    <!-- Debug Panel -->
-<div style="background: #f8f9fa; border: 2px solid #e74c3c; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-    <h3 style="color: #e74c3c; margin-top: 0;">🔧 Email Debug Panel</h3>
-    
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
-        <button onclick="testEmailService()" class="btn btn-primary">
-            📧 Send Test Email
-        </button>
-        
-        <button onclick="directIframeTest()" class="btn btn-info">
-            🔍 Direct Iframe Test
-        </button>
-        
-        <button onclick="checkAppsScript()" class="btn btn-warning">
-            🌐 Check Apps Script
-        </button>
-    </div>
-    
-    <div id="debugOutput" style="background: white; padding: 15px; border-radius: 5px; font-family: monospace; min-height: 50px;">
-        Click a button to test...
-     
-    </div>
-</div>
+                    </div>
                     
                     <div class="report-preview" id="reportPreview" style="display: none;">
                         <h3>Report Preview</h3>
@@ -306,29 +303,7 @@
         </div>
     </div>
 
-        <div id="debug" class="content-section"><!-- Debug Panel -->
-<div style="background: #f8f9fa; border: 2px solid #e74c3c; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-    <h3 style="color: #e74c3c; margin-top: 0;">🔧 Email Debug Panel</h3>
-    
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
-        <button onclick="testEmailService()" class="btn btn-primary">
-            📧 Send Test Email
-        </button>
         
-        <button onclick="directIframeTest()" class="btn btn-info">
-            🔍 Direct Iframe Test
-        </button>
-        
-        <button onclick="checkAppsScript()" class="btn btn-warning">
-            🌐 Check Apps Script
-        </button>
-    </div>
-    
-    <div id="debugOutput" style="background: white; padding: 15px; border-radius: 5px; font-family: monospace; min-height: 50px;">
-        Click a button to test...
-    </div>
-</div>
-    </div>
     
 
     <!-- Firebase SDKs -->
@@ -343,6 +318,37 @@
 
     
 <script>
+
+    //test email
+function testEmailService() {
+    const debug = document.getElementById('debugOutput');   
+    debug.innerHTML = '⏳ Sending test email...';
+    const user = getCurrentUser();
+    if (!user) {
+        debug.innerHTML = '❌ Please login first';
+        return;
+    }
+    const payload = {
+        action: 'sendLeaveApproval',
+        teacherEmail: user.email,
+        teacherName: user.name || 'Test',
+        leaveType: 'Debug Test',
+        startDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+        substituteName: 'Debug'
+    };
+    fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })    .then(response => response.text())
+        .then(data => {
+            debug.innerHTML = '✅ Email request sent! Check your inbox. Response: ' + data;
+        })
+        .catch(error => {
+            debug.innerHTML = '❌ Error sending email: ' + error.message;
+        });
+    }
     
 // Direct iframe test
 function directIframeTest() {
@@ -360,7 +366,7 @@ function directIframeTest() {
     
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = 'https://script.google.com/macros/s/AKfycbx1HwIcUtokf_j_2Z4hbmwXF9OohdObbkwEbFnVaOZr89-_j0bs4_afjelcma5Ff5tblg/exec';
+    form.action = 'https://script.google.com/macros/s/AKfycbzqCNcK_Zri5ejiq1Vx-d1ka5ei3xFt_FgaZAqWZaR4KM65NZnACrbF03CqCrFRFoCdtw/exec';
     form.target = 'test_iframe';
     
     const input = document.createElement('input');
@@ -399,7 +405,7 @@ function checkAppsScript() {
     const debug = document.getElementById('debugOutput');
     debug.innerHTML = '⏳ Checking Apps Script...';
     
-    fetch('https://script.google.com/macros/s/AKfycbyBvtyZ-E20_pRRdOm2AGvLMwVLs-matwHf3aCnjddIjNlgWToASqrOM7Onf3RtxN_Q7g/exec')
+    fetch('https://script.google.com/macros/s/AKfycbzqCNcK_Zri5ejiq1Vx-d1ka5ei3xFt_FgaZAqWZaR4KM65NZnACrbF03CqCrFRFoCdtw/exec')
         .then(r => r.text())
         .then(t => debug.innerHTML = '✅ Apps Script responded: ' + t)
         .catch(e => debug.innerHTML = '❌ Error: ' + e.message);
