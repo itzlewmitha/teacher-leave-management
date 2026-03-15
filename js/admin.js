@@ -1,13 +1,9 @@
-// ==================== ADMIN.JS - COMPLETE REWRITE ====================
-// This file contains all admin functionality with proper email integration
+// ==================== ADMIN.JS - Clean Version ====================
+// This file handles all admin functionality EXCEPT email (now in mail.js)
 
-// ==================== GLOBAL VARIABLES ====================
 let teachersUnsubscribe = null;
 let leavesUnsubscribe = null;
 let allTeachers = [];
-
-// Apps Script URL for email sending - VERIFIED WORKING
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyHpRIab6HPrrJ9Sxr-I666lGOGgRLY0c5U1aXCVfITb7Dt6uD6DSVzyq0XYABzDPwnmw/exec';
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -257,42 +253,7 @@ function getActionButtons(leave, id) {
     return leave.status;
 }
 
-// ==================== TEACHERS TABLE ====================
-async function updateTeachersTable() {
-    const tbody = document.getElementById('teachersBody');
-    
-    try {
-        const snapshot = await db.collection('users')
-            .where('role', '==', 'teacher')
-            .get();
-        
-        if (snapshot.empty) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No teachers found</td></tr>';
-            return;
-        }
-        
-        let html = '';
-        snapshot.forEach(doc => {
-            const teacher = doc.data();
-            html += `
-                <tr>
-                    <td>${teacher.name || 'N/A'}</td>
-                    <td>${teacher.email || 'N/A'}</td>
-                    <td>${teacher.totalLeaves || 14}</td>
-                    <td>${teacher.remainingLeaves || 14}</td>
-                    <td>${teacher.coverAssignmentsCount || 0}</td>
-                </tr>
-            `;
-        });
-        
-        tbody.innerHTML = html;
-    } catch (error) {
-        console.error('Error updating teachers table:', error);
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Error loading data</td></tr>';
-    }
-}
-
-// ==================== LEAVE APPROVAL/REJECTION WITH EMAILS ====================
+// ==================== LEAVE APPROVAL/REJECTION ====================
 window.approveLeave = async function(leaveId) {
     try {
         // Get the selected substitute teacher
@@ -362,39 +323,32 @@ window.approveLeave = async function(leaveId) {
         
         showNotification('Leave approved successfully! Sending emails...', 'success');
         
-        // Send approval email to teacher
+        // Send emails using mail.js functions
         try {
-            await window.sendEmail({
-                action: "sendLeaveApproval",
-                teacherEmail: teacherData.email,
-                teacherName: teacherData.name,
-                leaveType: leaveData.leaveType,
-                startDate: formatDateForEmail(leaveData.startDate),
-                endDate: formatDateForEmail(leaveData.endDate),
-                substituteName: substituteData.name
-            });
-            showNotification('Approval email sent to teacher', 'success');
+            await sendLeaveApprovalEmail(
+                teacherData.email,
+                teacherData.name,
+                leaveData.leaveType,
+                leaveData.startDate,
+                leaveData.endDate,
+                substituteData.name
+            );
         } catch (emailError) {
-            console.error('Error sending teacher email:', emailError);
-            showNotification('Failed to send email to teacher', 'warning');
+            console.error('Error sending approval email:', emailError);
         }
         
-        // Send assignment email to substitute
         try {
-            await window.sendEmail({
-                action: "sendSubstituteAssignment",
-                substituteEmail: substituteData.email,
-                substituteName: substituteData.name,
-                teacherName: teacherData.name,
-                leaveType: leaveData.leaveType,
-                startDate: formatDateForEmail(leaveData.startDate),
-                endDate: formatDateForEmail(leaveData.endDate),
-                assignmentLink: leaveData.assignmentLink || "No assignment link provided"
-            });
-            showNotification('Assignment email sent to substitute', 'success');
+            await sendSubstituteAssignmentEmail(
+                substituteData.email,
+                substituteData.name,
+                teacherData.name,
+                leaveData.leaveType,
+                leaveData.startDate,
+                leaveData.endDate,
+                leaveData.assignmentLink
+            );
         } catch (emailError) {
             console.error('Error sending substitute email:', emailError);
-            showNotification('Failed to send email to substitute', 'warning');
         }
         
     } catch (error) {
@@ -433,20 +387,17 @@ window.rejectLeave = async function(leaveId) {
         
         showNotification('Leave rejected successfully! Sending email...', 'success');
         
-        // Send rejection email
+        // Send rejection email using mail.js
         try {
-            await window.sendEmail({
-                action: "sendLeaveRejection",
-                teacherEmail: teacherData.email,
-                teacherName: teacherData.name,
-                leaveType: leaveData.leaveType,
-                startDate: formatDateForEmail(leaveData.startDate),
-                endDate: formatDateForEmail(leaveData.endDate)
-            });
-            showNotification('Rejection email sent to teacher', 'success');
+            await sendLeaveRejectionEmail(
+                teacherData.email,
+                teacherData.name,
+                leaveData.leaveType,
+                leaveData.startDate,
+                leaveData.endDate
+            );
         } catch (emailError) {
             console.error('Error sending rejection email:', emailError);
-            showNotification('Failed to send rejection email', 'warning');
         }
         
     } catch (error) {
@@ -455,182 +406,85 @@ window.rejectLeave = async function(leaveId) {
     }
 };
 
-// ==================== EMAIL SENDING FUNCTION ====================
-// ==================== FIXED EMAIL SENDING FUNCTION ====================
-window.sendEmail = function(emailData) {
-    return new Promise((resolve, reject) => {
-        console.log('📧 Sending email with data:', emailData);
+// ==================== TEACHERS TABLE ====================
+async function updateTeachersTable() {
+    const tbody = document.getElementById('teachersBody');
+    
+    try {
+        const snapshot = await db.collection('users')
+            .where('role', '==', 'teacher')
+            .get();
         
-        try {
-            // Validate email data
-            if (!emailData.action) {
-                console.error('Missing action in email data');
-                reject(new Error('Missing email action'));
-                return;
-            }
-            
-            // Ensure teacherEmail exists
-            if (!emailData.teacherEmail && !emailData.substituteEmail) {
-                console.error('No recipient email provided');
-                reject(new Error('No recipient email provided'));
-                return;
-            }
-            
-            // Create a unique ID for tracking
-            const requestId = 'email_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            
-            // Create form element
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = APPS_SCRIPT_URL;
-            form.style.display = 'none';
-            form.target = requestId;
-            form.acceptCharset = 'utf-8';
-            
-            // Add data as form field - Apps Script expects parameter named "data"
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'data';
-            input.value = JSON.stringify(emailData);
-            form.appendChild(input);
-            
-            // Create iframe for response
-            const iframe = document.createElement('iframe');
-            iframe.name = requestId;
-            iframe.style.display = 'none';
-            
-            // Add to document
-            document.body.appendChild(iframe);
-            document.body.appendChild(form);
-            
-            console.log('📧 Form created with data field:', input.value);
-            
-            // Set up timeout
-            let isResolved = false;
-            const timeout = setTimeout(() => {
-                if (!isResolved) {
-                    isResolved = true;
-                    cleanup();
-                    console.log('📧 Email request timed out - but was likely sent');
-                    resolve({ success: true, warning: 'timeout' });
-                }
-            }, 30000); // 30 second timeout
-            
-            // Handle iframe load
-            iframe.onload = function() {
-                if (!isResolved) {
-                    isResolved = true;
-                    clearTimeout(timeout);
-                    
-                    // Try to read response (may fail due to CORS)
-                    try {
-                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                        const content = iframeDoc.body.textContent || iframeDoc.body.innerHTML;
-                        console.log('📧 Response received:', content);
-                        
-                        try {
-                            const response = JSON.parse(content);
-                            if (response.status === 200) {
-                                console.log('✅ Email sent successfully');
-                                showNotification('Email sent successfully', 'success');
-                            } else {
-                                console.warn('⚠️ Email issue:', response);
-                                showNotification('Email sent with warnings', 'warning');
-                            }
-                        } catch (e) {
-                            console.log('📧 Non-JSON response (CORS)');
-                        }
-                    } catch (e) {
-                        console.log('📧 Cannot read iframe content (CORS)');
-                    }
-                    
-                    cleanup();
-                    resolve({ success: true });
-                }
-            };
-            
-            // Handle iframe error
-            iframe.onerror = function(error) {
-                console.error('📧 Iframe error:', error);
-                if (!isResolved) {
-                    isResolved = true;
-                    clearTimeout(timeout);
-                    cleanup();
-                    resolve({ success: true, warning: 'iframe error' });
-                }
-            };
-            
-            // Submit the form
-            console.log('📧 Submitting form to Apps Script');
-            form.submit();
-            console.log('📧 Form submitted successfully');
-            
-            // Cleanup function
-            function cleanup() {
-                try {
-                    if (form && form.parentNode) document.body.removeChild(form);
-                    if (iframe && iframe.parentNode) document.body.removeChild(iframe);
-                } catch (e) {
-                    console.log('Cleanup error:', e);
-                }
-            }
-            
-        } catch (error) {
-            console.error('📧 Critical error:', error);
-            showNotification('Email error: ' + error.message, 'error');
-            reject(error);
+        if (snapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No teachers found</td></tr>';
+            return;
         }
-    });
-};
-// ==================== FIXED TEST EMAIL FUNCTION ====================
-window.testEmailNow = function() {
-    const user = getCurrentUser();
-    
-    if (!user || !user.email) {
-        showNotification("Please login first", "error");
-        return;
-    }
-    
-    showNotification(`📧 Sending test email to ${user.email}...`, "info");
-    
-    const testData = {
-        action: "test",
-        teacherEmail: user.email,
-        teacherName: user.name || "Admin User",
-        timestamp: new Date().toString()
-    };
-    
-    console.log("Sending test data:", testData);
-    
-    // Try primary method (form with iframe)
-    window.sendEmail(testData)
-        .then(result => {
-            console.log("Email test result:", result);
-            showNotification("✅ Test email sent! Check your inbox in 2-3 minutes.", "success");
-        })
-        .catch(error => {
-            console.error("Email test failed:", error);
-            
-            // Fallback: direct fetch
-            showNotification("Primary method failed, trying fallback...", "warning");
-            
-            fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'data=' + encodeURIComponent(JSON.stringify(testData))
-            })
-            .then(() => {
-                showNotification("✅ Test email sent via fallback! Check your inbox.", "success");
-            })
-            .catch(fetchError => {
-                console.error("Fallback also failed:", fetchError);
-                showNotification("❌ All email methods failed. Check console.", "error");
-            });
+        
+        let html = '';
+        snapshot.forEach(doc => {
+            const teacher = doc.data();
+            html += `
+                <tr>
+                    <td>${teacher.name || 'N/A'}</td>
+                    <td>${teacher.email || 'N/A'}</td>
+                    <td>${teacher.totalLeaves || 14}</td>
+                    <td>${teacher.remainingLeaves || 14}</td>
+                    <td>${teacher.coverAssignmentsCount || 0}</td>
+                </tr>
+            `;
         });
-};
+        
+        tbody.innerHTML = html;
+    } catch (error) {
+        console.error('Error updating teachers table:', error);
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Error loading data</td></tr>';
+    }
+}
+
+// ==================== CREATE TEACHER ACCOUNT ====================
+function initializeCreateTeacherForm() {
+    const form = document.getElementById('createTeacherForm');
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('teacherName').value;
+            const email = document.getElementById('teacherEmail').value;
+            const password = document.getElementById('teacherPassword').value;
+            const errorElement = document.getElementById('createError');
+            const successElement = document.getElementById('createSuccess');
+            
+            errorElement.style.display = 'none';
+            successElement.style.display = 'none';
+            
+            try {
+                // Create user in Firebase Auth
+                const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+                
+                // Create user document in Firestore
+                await db.collection('users').doc(userCredential.user.uid).set({
+                    name: name,
+                    email: email,
+                    role: 'teacher',
+                    totalLeaves: 14,
+                    remainingLeaves: 14,
+                    coverAssignmentsCount: 0,
+                    createdAt: new Date().toISOString()
+                });
+                
+                successElement.textContent = 'Teacher account created successfully!';
+                successElement.style.display = 'block';
+                form.reset();
+                
+            } catch (error) {
+                console.error('Error creating teacher:', error);
+                errorElement.textContent = error.message;
+                errorElement.style.display = 'block';
+            }
+        });
+    }
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 function filterLeaveRequests() {
     updateLeaveRequests();
@@ -706,20 +560,6 @@ function formatDate(dateString) {
         return date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
-            day: 'numeric'
-        });
-    } catch {
-        return dateString;
-    }
-}
-
-function formatDateForEmail(dateString) {
-    if (!dateString) return 'N/A';
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
             day: 'numeric'
         });
     } catch {
@@ -820,114 +660,6 @@ window.generateMonthlyReport = async function() {
     }
 };
 
-window.generateYearlySummary = async function() {
-    const monthInput = document.getElementById('reportMonth').value;
-    if (!monthInput) {
-        showNotification('Please select a month to get the year', 'error');
-        return;
-    }
-    
-    const year = monthInput.split('-')[0];
-    
-    try {
-        showNotification('Generating yearly summary...', 'info');
-        
-        const startDate = new Date(year, 0, 1);
-        const endDate = new Date(year, 11, 31, 23, 59, 59);
-        
-        const snapshot = await db.collection('leaveRequests')
-            .where('createdAt', '>=', startDate.toISOString())
-            .where('createdAt', '<=', endDate.toISOString())
-            .get();
-        
-        const leaves = [];
-        snapshot.forEach(doc => {
-            leaves.push({ id: doc.id, ...doc.data() });
-        });
-        
-        generateYearlyPDFReport(leaves, year);
-        showNotification('Yearly summary generated!', 'success');
-    } catch (error) {
-        console.error('Error generating yearly summary:', error);
-        showNotification('Error generating summary', 'error');
-    }
-};
-
-window.downloadPendingReport = async function() {
-    try {
-        const snapshot = await db.collection('leaveRequests')
-            .where('status', '==', 'pending')
-            .orderBy('createdAt', 'desc')
-            .get();
-        
-        const leaves = [];
-        snapshot.forEach(doc => {
-            leaves.push({ id: doc.id, ...doc.data() });
-        });
-        
-        generatePDFReport(leaves, `Pending_Requests_${new Date().toISOString().split('T')[0]}`, 'Pending Leave Requests');
-    } catch (error) {
-        console.error('Error generating pending report:', error);
-        showNotification('Error generating report', 'error');
-    }
-};
-
-window.downloadTeacherReport = async function() {
-    try {
-        const teachersSnapshot = await db.collection('users')
-            .where('role', '==', 'teacher')
-            .get();
-        
-        const teachers = [];
-        teachersSnapshot.forEach(doc => {
-            teachers.push({ id: doc.id, ...doc.data() });
-        });
-        
-        const leavesSnapshot = await db.collection('leaveRequests')
-            .where('status', '==', 'approved')
-            .get();
-        
-        const leaves = [];
-        leavesSnapshot.forEach(doc => {
-            leaves.push({ id: doc.id, ...doc.data() });
-        });
-        
-        generateTeacherSummaryPDF(teachers, leaves);
-    } catch (error) {
-        console.error('Error generating teacher report:', error);
-        showNotification('Error generating report', 'error');
-    }
-};
-
-window.downloadSubstituteReport = async function() {
-    try {
-        const snapshot = await db.collection('leaveRequests')
-            .where('status', '==', 'approved')
-            .where('substituteTeacherId', '!=', null)
-            .orderBy('createdAt', 'desc')
-            .get();
-        
-        const leaves = [];
-        snapshot.forEach(doc => {
-            leaves.push({ id: doc.id, ...doc.data() });
-        });
-        
-        const teachersSnapshot = await db.collection('users')
-            .where('role', '==', 'teacher')
-            .get();
-        
-        const teachers = {};
-        teachersSnapshot.forEach(doc => {
-            teachers[doc.id] = doc.data();
-        });
-        
-        generateSubstitutePDFReport(leaves, teachers);
-    } catch (error) {
-        console.error('Error generating substitute report:', error);
-        showNotification('Error generating report', 'error');
-    }
-};
-
 // PDF Generation Functions
 function generatePDFReport(leaves, filename, title = 'Leave Requests Report') {
     const { jsPDF } = window.jspdf;
@@ -1001,122 +733,6 @@ function generateMonthlyPDFReport(leaves, year, month) {
     doc.save(`Monthly_Report_${monthNames[parseInt(month) - 1]}_${year}.pdf`);
 }
 
-function generateYearlyPDFReport(leaves, year) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    doc.setFontSize(24);
-    doc.text(`Yearly Leave Summary`, 14, 22);
-    doc.setFontSize(16);
-    doc.text(`${year}`, 14, 32);
-    
-    const monthlyStats = {};
-    for (let i = 0; i < 12; i++) {
-        monthlyStats[i] = { total: 0, approved: 0, pending: 0, rejected: 0 };
-    }
-    
-    leaves.forEach(leave => {
-        if (leave.createdAt) {
-            const date = new Date(leave.createdAt);
-            const month = date.getMonth();
-            monthlyStats[month].total++;
-            if (leave.status === 'approved') monthlyStats[month].approved++;
-            else if (leave.status === 'pending') monthlyStats[month].pending++;
-            else if (leave.status === 'rejected') monthlyStats[month].rejected++;
-        }
-    });
-    
-    const tableColumn = ['Month', 'Total', 'Approved', 'Pending', 'Rejected'];
-    const tableRows = [];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    for (let i = 0; i < 12; i++) {
-        tableRows.push([
-            monthNames[i],
-            monthlyStats[i].total,
-            monthlyStats[i].approved,
-            monthlyStats[i].pending,
-            monthlyStats[i].rejected
-        ]);
-    }
-    
-    doc.autoTable({
-        head: [tableColumn],
-        body: tableRows,
-        startY: 50,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [52, 152, 219] }
-    });
-    
-    doc.save(`Yearly_Summary_${year}.pdf`);
-}
-
-function generateTeacherSummaryPDF(teachers, leaves) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    doc.setFontSize(24);
-    doc.text('Teacher Leave Summary', 14, 22);
-    
-    const tableColumn = ['Teacher', 'Total', 'Remaining', 'Used', 'Cover Assignments'];
-    const tableRows = [];
-    
-    teachers.forEach(teacher => {
-        const teacherLeaves = leaves.filter(l => l.teacherId === teacher.id);
-        const usedLeaves = (teacher.totalLeaves || 14) - (teacher.remainingLeaves || 14);
-        
-        tableRows.push([
-            teacher.name || 'Unknown',
-            teacher.totalLeaves || 14,
-            teacher.remainingLeaves || 14,
-            usedLeaves,
-            teacher.coverAssignmentsCount || 0
-        ]);
-    });
-    
-    doc.autoTable({
-        head: [tableColumn],
-        body: tableRows,
-        startY: 40,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [52, 152, 219] }
-    });
-    
-    doc.save(`Teacher_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
-}
-
-function generateSubstitutePDFReport(leaves, teachers) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    doc.setFontSize(24);
-    doc.text('Substitute Teacher Report', 14, 22);
-    
-    const tableColumn = ['Date', 'Teacher', 'Substitute', 'Leave Type', 'Period'];
-    const tableRows = [];
-    
-    leaves.forEach(leave => {
-        const substitute = teachers[leave.substituteTeacherId]?.name || leave.substituteTeacherId;
-        tableRows.push([
-            formatDate(leave.createdAt),
-            leave.teacherName || 'Unknown',
-            substitute || 'Unknown',
-            leave.leaveType || 'N/A',
-            `${formatDate(leave.startDate)} to ${formatDate(leave.endDate)}`
-        ]);
-    });
-    
-    doc.autoTable({
-        head: [tableColumn],
-        body: tableRows,
-        startY: 40,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [52, 152, 219] }
-    });
-    
-    doc.save(`Substitute_Report_${new Date().toISOString().split('T')[0]}.pdf`);
-}
-
 // ==================== CLEANUP ====================
 window.addEventListener('beforeunload', () => {
     if (teachersUnsubscribe) teachersUnsubscribe();
@@ -1126,7 +742,6 @@ window.addEventListener('beforeunload', () => {
 // ==================== EXPOSE GLOBAL FUNCTIONS ====================
 window.logout = logout;
 window.filterLeaveRequests = filterLeaveRequests;
-window.testEmailNow = testEmailNow;
 window.showSection = showSection;
 window.downloadCurrentViewPDF = downloadCurrentViewPDF;
 window.generateMonthlyReport = generateMonthlyReport;
@@ -1135,20 +750,4 @@ window.downloadPendingReport = downloadPendingReport;
 window.downloadTeacherReport = downloadTeacherReport;
 window.downloadSubstituteReport = downloadSubstituteReport;
 
-// Add CSS animation
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-`;
-document.head.appendChild(style);
-
-console.log('✅ Admin.js loaded successfully with email functionality');
+console.log('✅ Admin.js loaded successfully');

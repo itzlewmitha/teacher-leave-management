@@ -1,3 +1,35 @@
+// ==================== teacher.js - Add this at the top ====================
+
+// Prevent multiple initializations
+let isInitialized = false;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Prevent double initialization
+    if (isInitialized) return;
+    isInitialized = true;
+    
+    const user = getCurrentUser();
+    console.log('Teacher dashboard loading, user:', user);
+    
+    if (!user || user.role !== 'teacher') {
+        console.log('Invalid user for teacher dashboard, redirecting...');
+        window.location.href = 'index.html';
+        return;
+    }
+
+    // Load teacher data
+    await loadTeacherData();
+    
+    // Set up real-time leave requests listener
+    setupLeavesListener();
+    
+    // Initialize form
+    initializeLeaveForm();
+    
+    // Update user info in sidebar
+    updateUserInfo();
+});
+
 // Current teacher data
 let currentTeacher = null;
 let leavesUnsubscribe = null;
