@@ -312,104 +312,43 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     
     <!-- Application Scripts -->
-    <script src="js/firebaseConfig.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/admin.js"></script>
+<script src="js/firebaseConfig.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/mail.js"></script>  <!-- ADD THIS LINE -->
+<script src="js/admin.js"></script>
 
     
 <script>
-
-    //test email
-function testEmailService() {
-    const debug = document.getElementById('debugOutput');   
-    debug.innerHTML = '⏳ Sending test email...';
+// Add this to admin.html or admin.js for immediate testing
+window.emergencyEmailTest = function() {
     const user = getCurrentUser();
     if (!user) {
-        debug.innerHTML = '❌ Please login first';
+        alert('Please login first');
         return;
     }
-    const payload = {
-        action: 'sendLeaveApproval',
+    
+    const testData = {
+        action: "test",
         teacherEmail: user.email,
-        teacherName: user.name || 'Test',
-        leaveType: 'Debug Test',
-        startDate: new Date().toISOString(),
-        endDate: new Date().toISOString(),
-        substituteName: 'Debug'
+        teacherName: user.name || "Admin User",
+        timestamp: new Date().toString()
     };
+    
+    // Try direct fetch
     fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    })    .then(response => response.text())
-        .then(data => {
-            debug.innerHTML = '✅ Email request sent! Check your inbox. Response: ' + data;
+        mode: 'no-cors',
+        body: new URLSearchParams({
+            'data': JSON.stringify(testData)
         })
-        .catch(error => {
-            debug.innerHTML = '❌ Error sending email: ' + error.message;
-        });
-    }
-    
-// Direct iframe test
-function directIframeTest() {
-    const debug = document.getElementById('debugOutput');
-    debug.innerHTML = '⏳ Testing iframe method...';
-    
-    const user = getCurrentUser();
-    if (!user) {
-        debug.innerHTML = '❌ Please login first';
-        return;
-    }
-    
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'https://script.google.com/macros/s/AKfycbzqCNcK_Zri5ejiq1Vx-d1ka5ei3xFt_FgaZAqWZaR4KM65NZnACrbF03CqCrFRFoCdtw/exec';
-    form.target = 'test_iframe';
-    
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'data';
-    input.value = JSON.stringify({
-        action: 'sendLeaveApproval',
-        teacherEmail: user.email,
-        teacherName: user.name || 'Test',
-        leaveType: 'Debug Test',
-        startDate: new Date().toISOString(),
-        endDate: new Date().toISOString(),
-        substituteName: 'Debug'
+    })
+    .then(() => {
+        alert('✅ Test email request sent!\nCheck your email (including spam) in 2-3 minutes.\nEmail: ' + user.email);
+    })
+    .catch(error => {
+        alert('❌ Error: ' + error.message);
     });
-    
-    form.appendChild(input);
-    iframe.name = 'test_iframe';
-    
-    document.body.appendChild(iframe);
-    document.body.appendChild(form);
-    
-    iframe.onload = function() {
-        debug.innerHTML = '✅ Iframe loaded - email request sent! Check your inbox.';
-        setTimeout(() => {
-            document.body.removeChild(form);
-            document.body.removeChild(iframe);
-        }, 1000);
-    };
-    
-    form.submit();
-    debug.innerHTML = '⏳ Form submitted, waiting for response...';
-}
-
-// Check Apps Script directly
-function checkAppsScript() {
-    const debug = document.getElementById('debugOutput');
-    debug.innerHTML = '⏳ Checking Apps Script...';
-    
-    fetch('https://script.google.com/macros/s/AKfycbzqCNcK_Zri5ejiq1Vx-d1ka5ei3xFt_FgaZAqWZaR4KM65NZnACrbF03CqCrFRFoCdtw/exec')
-        .then(r => r.text())
-        .then(t => debug.innerHTML = '✅ Apps Script responded: ' + t)
-        .catch(e => debug.innerHTML = '❌ Error: ' + e.message);
-}
+};
 </script>
 </body>
 </html>
