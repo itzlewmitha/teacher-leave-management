@@ -595,3 +595,44 @@ textarea.form-control {
         grid-template-columns: 1fr;
     }
 }
+/* Email notification styles */
+#emailNotification {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.email-settings {
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.email-settings .form-group {
+    margin-bottom: 15px;
+}
+
+#emailTestResult {
+    font-size: 14px;
+    padding: 5px 10px;
+    border-radius: 3px;
+}
+
+#emailTestResult.success {
+    background: #d4edda;
+    color: #155724;
+}
+
+#emailTestResult.error {
+    background: #f8d7da;
+    color: #721c24;
+}

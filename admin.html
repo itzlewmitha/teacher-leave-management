@@ -11,6 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
+    
     <div class="dashboard">
         <!-- Sidebar -->
         <div class="sidebar">
@@ -204,7 +205,30 @@
                                 🔄 Substitute Teacher Report
                             </button>
                         </div>
-                    </div>
+                    </div> 
+                    <!-- Debug Panel -->
+<div style="background: #f8f9fa; border: 2px solid #e74c3c; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+    <h3 style="color: #e74c3c; margin-top: 0;">🔧 Email Debug Panel</h3>
+    
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+        <button onclick="testEmailService()" class="btn btn-primary">
+            📧 Send Test Email
+        </button>
+        
+        <button onclick="directIframeTest()" class="btn btn-info">
+            🔍 Direct Iframe Test
+        </button>
+        
+        <button onclick="checkAppsScript()" class="btn btn-warning">
+            🌐 Check Apps Script
+        </button>
+    </div>
+    
+    <div id="debugOutput" style="background: white; padding: 15px; border-radius: 5px; font-family: monospace; min-height: 50px;">
+        Click a button to test...
+     
+    </div>
+</div>
                     
                     <div class="report-preview" id="reportPreview" style="display: none;">
                         <h3>Report Preview</h3>
@@ -282,6 +306,31 @@
         </div>
     </div>
 
+        <div id="debug" class="content-section"><!-- Debug Panel -->
+<div style="background: #f8f9fa; border: 2px solid #e74c3c; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+    <h3 style="color: #e74c3c; margin-top: 0;">🔧 Email Debug Panel</h3>
+    
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+        <button onclick="testEmailService()" class="btn btn-primary">
+            📧 Send Test Email
+        </button>
+        
+        <button onclick="directIframeTest()" class="btn btn-info">
+            🔍 Direct Iframe Test
+        </button>
+        
+        <button onclick="checkAppsScript()" class="btn btn-warning">
+            🌐 Check Apps Script
+        </button>
+    </div>
+    
+    <div id="debugOutput" style="background: white; padding: 15px; border-radius: 5px; font-family: monospace; min-height: 50px;">
+        Click a button to test...
+    </div>
+</div>
+    </div>
+    
+
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -291,5 +340,70 @@
     <script src="js/firebaseConfig.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/admin.js"></script>
+
+    
+<script>
+    
+// Direct iframe test
+function directIframeTest() {
+    const debug = document.getElementById('debugOutput');
+    debug.innerHTML = '⏳ Testing iframe method...';
+    
+    const user = getCurrentUser();
+    if (!user) {
+        debug.innerHTML = '❌ Please login first';
+        return;
+    }
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'https://script.google.com/macros/s/AKfycbx1HwIcUtokf_j_2Z4hbmwXF9OohdObbkwEbFnVaOZr89-_j0bs4_afjelcma5Ff5tblg/exec';
+    form.target = 'test_iframe';
+    
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'data';
+    input.value = JSON.stringify({
+        action: 'sendLeaveApproval',
+        teacherEmail: user.email,
+        teacherName: user.name || 'Test',
+        leaveType: 'Debug Test',
+        startDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+        substituteName: 'Debug'
+    });
+    
+    form.appendChild(input);
+    iframe.name = 'test_iframe';
+    
+    document.body.appendChild(iframe);
+    document.body.appendChild(form);
+    
+    iframe.onload = function() {
+        debug.innerHTML = '✅ Iframe loaded - email request sent! Check your inbox.';
+        setTimeout(() => {
+            document.body.removeChild(form);
+            document.body.removeChild(iframe);
+        }, 1000);
+    };
+    
+    form.submit();
+    debug.innerHTML = '⏳ Form submitted, waiting for response...';
+}
+
+// Check Apps Script directly
+function checkAppsScript() {
+    const debug = document.getElementById('debugOutput');
+    debug.innerHTML = '⏳ Checking Apps Script...';
+    
+    fetch('https://script.google.com/macros/s/AKfycbyBvtyZ-E20_pRRdOm2AGvLMwVLs-matwHf3aCnjddIjNlgWToASqrOM7Onf3RtxN_Q7g/exec')
+        .then(r => r.text())
+        .then(t => debug.innerHTML = '✅ Apps Script responded: ' + t)
+        .catch(e => debug.innerHTML = '❌ Error: ' + e.message);
+}
+</script>
 </body>
 </html>
